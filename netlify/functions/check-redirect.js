@@ -1,92 +1,73 @@
-const axios = require("axios");
+const { chromium } = require("playwright");
 
 exports.handler = async (event) => {
+
+    let browser;
+
     try {
 
         const { url } = JSON.parse(event.body);
 
-        let currentUrl = url;
+        let targetUrl = url;
 
-        if (!currentUrl.startsWith("http")) {
-            currentUrl = "https://" + currentUrl;
+        if (!targetUrl.startsWith("http")) {
+            targetUrl = "https://" + targetUrl;
         }
 
-        const results = [];
-        const visited = new Set();
+        browser = await chromium.launch({
+            headless: true
+        });
 
-        while (true) {
+        const page = await browser.newPage();
 
-            if (visited.has(currentUrl)) {
-                break;
+        const chain = [];
+
+        page.on("response", (response) => {
+
+            const request = response.request();
+
+            if (request.resourceType() === "document") {
+
+                chain.push({
+                    url: response.url(),
+                    status: response.status()
+                });
+
             }
 
-            visited.add(currentUrl);
+        });
 
-            const response = await axios.get(currentUrl, {
-                maxRedirects: 0,
-                validateStatus: () => true,
-                headers: {
-                    "User-Agent":
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36"
-                }
-            });
+        await page.goto(targetUrl, {
+            waitUntil: "networkidle",
+            timeout: 30000
+        });
 
-            let nextUrl = null;
+        const finalUrl = page.url();
 
-            // HTTP Redirect
-            if (
-                response.status >= 300 &&
-                response.status < 400 &&
-                response.headers.location
-            ) {
-                nextUrl = new URL(
-                    response.headers.location,
-                    currentUrl
-                ).href;
-            }
-
-            // Meta Refresh Redirect
-            if (!nextUrl && typeof response.data === "string") {
-
-                const metaMatch = response.data.match(
-                    /http-equiv=["']refresh["'][^>]*content=["'][^;]+;\s*url=([^"']+)/i
-                );
-
-                if (metaMatch) {
-                    nextUrl = new URL(
-                        metaMatch[1],
-                        currentUrl
-                    ).href;
-                }
-            }
-
-            results.push({
-                url: currentUrl,
-                status: response.status,
-                redirect: nextUrl
-            });
-
-            if (!nextUrl) {
-                break;
-            }
-
-            currentUrl = nextUrl;
-        }
+        await browser.close();
 
         return {
             statusCode: 200,
-            body: JSON.stringify(results)
+            body: JSON.stringify({
+                success: true,
+                finalUrl,
+                redirects: chain
+            })
         };
 
     } catch (error) {
 
+        if (browser) {
+            await browser.close();
+        }
+
         return {
             statusCode: 500,
             body: JSON.stringify({
-                error: error.message,
-                name: error.name
+                error: error.message
             })
         };
 
     }
+
 };
