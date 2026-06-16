@@ -64,7 +64,7 @@ async function checkRedirect() {
 
     result.innerHTML = "Loading...";
 
-    const response = await fetch("/check", {
+    const response = await fetch("/.netlify/functions/check-redirect", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
