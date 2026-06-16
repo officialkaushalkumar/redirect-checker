@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirect Checker</title>
+
+    <style>
+
+    body{
+        font-family:Arial;
+        max-width:900px;
+        margin:auto;
+        padding:20px;
+    }
+
+    input{
+        width:70%;
+        padding:10px;
+    }
+
+    button{
+        padding:10px 20px;
+    }
+
+    .box{
+    border:1px solid #ddd;
+    margin-top:10px;
+    padding:15px;
+    background:white;
+
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+
+    </style>
+
+</head>
+<body>
+
+<h1>Redirect Checker</h1>
+
+<input
+    id="url"
+    placeholder="Enter URL"
+/>
+
+<button onclick="checkRedirect()">
+    Check
+</button>
+
+<hr>
+
+<div id="result"></div>
+
+<script>
+
+async function checkRedirect() {
+
+    const url =
+        document.getElementById("url").value;
+
+    const result =
+        document.getElementById("result");
+
+    result.innerHTML = "Loading...";
+
+    const response = await fetch("/check", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            url: url
+        })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+
+        result.innerHTML =
+            "<b>Error:</b> " + data.error;
+
+        return;
+    }
+
+    let html = "";
+
+    data.forEach(item => {
+
+        html += `
+            <div class="box">
+
+                <b>URL:</b><br>
+                ${item.url}
+
+                <br><br>
+
+                <b>Status:</b>
+                ${item.status}
+
+                <br><br>
+
+                <b>Redirect To:</b>
+                ${item.redirect || "Final Page"}
+
+            </div>
+        `;
+
+    });
+
+    result.innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
